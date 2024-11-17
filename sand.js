@@ -113,48 +113,55 @@ class SandSimulation {
         this.particles.forEach(p => {
             if (p.settled) return;
             
-            // Remove from old position
-            if (p.settled) {
-                this.setGridPosition(p.x, p.y, false);
-            }
+            // Ensure grid alignment at all times
+            p.x = Math.round(p.x / this.gridSize) * this.gridSize;
+            p.y = Math.round(p.y / this.gridSize) * this.gridSize;
             
-            const newX = p.x + p.speedX;
-            const newY = p.y + p.speedY;
+            // Calculate fall distance based on deltaTime
+            const fallSpeed = 2; // Increased fall speed
+            const steps = Math.max(1, Math.floor(fallSpeed * (deltaTime / 16))); // Smooth multi-step movement
             
-            // Check if can move down
-            if (this.checkCollision(newX, newY + this.gridSize)) {
-                // Try moving diagonally
-                const canMoveLeft = !this.checkCollision(newX - this.gridSize, newY + this.gridSize);
-                const canMoveRight = !this.checkCollision(newX + this.gridSize, newY + this.gridSize);
+            // Process multiple steps per frame for smoother fast movement
+            for (let step = 0; step < steps; step++) {
+                const nextY = p.y + this.gridSize;
                 
-                if (canMoveLeft || canMoveRight) {
-                    // Choose a direction randomly if both are available
-                    if (canMoveLeft && canMoveRight) {
-                        p.x += (Math.random() < 0.5 ? -1 : 1) * this.gridSize;
-                    } else if (canMoveLeft) {
-                        p.x -= this.gridSize;
+                // Check if can move down
+                if (this.checkCollision(p.x, nextY)) {
+                    // Check diagonal positions
+                    const leftX = p.x - this.gridSize;
+                    const rightX = p.x + this.gridSize;
+                    const canMoveLeft = !this.checkCollision(leftX, nextY);
+                    const canMoveRight = !this.checkCollision(rightX, nextY);
+                    
+                    if (canMoveLeft || canMoveRight) {
+                        // Determine direction based on row for consistent stacking
+                        const row = Math.floor(p.y / this.gridSize);
+                        
+                        if (canMoveLeft && canMoveRight) {
+                            // Choose direction based on row number for alternating pattern
+                            p.x = (row % 2 === 0) ? leftX : rightX;
+                        } else {
+                            // Move to the only available side
+                            p.x = canMoveLeft ? leftX : rightX;
+                        }
+                        p.y = nextY;
                     } else {
-                        p.x += this.gridSize;
+                        // If can't move diagonally, settle here
+                        p.settled = true;
+                        this.setGridPosition(p.x, p.y, true);
+                        break; // Exit the step loop if settled
                     }
-                    p.y = newY;
                 } else {
-                    // If can't move diagonally, settle
-                    p.x = Math.floor(newX / this.gridSize) * this.gridSize;
-                    p.y = Math.floor(newY / this.gridSize) * this.gridSize;
-                    p.settled = true;
-                    this.setGridPosition(p.x, p.y, true);
+                    // Move straight down
+                    p.y = nextY;
                 }
-            } else {
-                // Can move straight down
-                p.x = newX;
-                p.y = newY;
+                
+                // Keep within bounds
+                p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
+                
+                // If we've hit the bottom or another particle, no need to continue steps
+                if (p.settled) break;
             }
-            
-            p.speedY += 0.15;
-            p.speedX *= 0.99;
-            
-            // Keep within bounds
-            p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
         });
         
         // Update the global hue for color transition
