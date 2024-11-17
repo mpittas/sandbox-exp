@@ -118,7 +118,7 @@ class SandSimulation {
             p.y = Math.round(p.y / this.gridSize) * this.gridSize;
             
             // Calculate fall distance based on deltaTime
-            const fallSpeed = 2; // Increased fall speed
+            const fallSpeed = 4; // Increased fall speed
             const steps = Math.max(1, Math.floor(fallSpeed * (deltaTime / 16))); // Smooth multi-step movement
             
             // Process multiple steps per frame for smoother fast movement
