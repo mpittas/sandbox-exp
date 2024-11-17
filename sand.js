@@ -11,11 +11,11 @@ class SandSimulation {
         
         // Configuration options
         this.config = {
-            sandFlow: 2,
-            fallSpeed: 2,
+            sandFlow: 15,
+            fallSpeed: 3.5,
             colorSpeed: 0.5,
             particlesPerFrame: 20,  // Fixed value, not exposed to GUI
-            pixelSize: 4  // New pixel size option
+            pixelSize: 5  
         };
         
         // Grid system for collision detection
@@ -50,7 +50,7 @@ class SandSimulation {
     setupGUI() {
         const gui = new dat.GUI();
         gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
-        gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
+        gui.add(this.config, 'fallSpeed', 0.5, 10).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
         gui.add(this.config, 'pixelSize', 2, 12).step(1).name('Pixel Size').onChange(() => {
             this.resetCanvas();
@@ -136,7 +136,7 @@ class SandSimulation {
     
     checkCollision(x, y) {
         // Check canvas bounds first
-        if (x < 0 || x >= this.canvas.width || y >= this.canvas.height - this.gridSize) {
+        if (x < 0 || x >= this.canvas.width || y >= this.canvas.height) {
             return true;
         }
         return this.isPositionOccupied(x, y);
