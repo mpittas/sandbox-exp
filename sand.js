@@ -9,21 +9,30 @@ class SandSimulation {
         this.lastMouseY = 0;
         this.isMouseDown = false;
         
+        // Configuration options
+        this.config = {
+            particleSpread: 2,
+            fallSpeed: 2,
+            particlesPerFrame: 8,
+            colorSpeed: 0.5
+        };
+        
         // Grid system for collision detection
         this.gridSize = 4;
         this.grid = new Set();
         
         // Color transition
         this.hue = 0;
-        this.colorSpeed = 0.5;
         
         // Particle creation interval
         this.lastParticleTime = 0;
         this.particleInterval = 16; // Create particles every 16ms (roughly 60fps)
-        this.particleSpacing = 4; // Distance between particle spawn points
         
         // Set canvas to full window size
         this.resize();
+        
+        // Setup GUI
+        this.setupGUI();
         
         // Event listeners
         window.addEventListener('resize', () => this.resize());
@@ -35,6 +44,14 @@ class SandSimulation {
         // Start animation loop
         this.lastTime = performance.now();
         this.animate();
+    }
+    
+    setupGUI() {
+        const gui = new dat.GUI();
+        gui.add(this.config, 'particleSpread', 0, 10).step(0.5).name('Particle Spread');
+        gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
+        gui.add(this.config, 'particlesPerFrame', 1, 20).step(1).name('Particles/Frame');
+        gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
     }
     
     resize() {
@@ -84,51 +101,23 @@ class SandSimulation {
     }
     
     createParticles() {
-        const numParticles = 8;
-        const spread = 5;
-        
-        // Calculate distance moved
-        const dx = this.mouseX - this.lastMouseX;
-        const dy = this.mouseY - this.lastMouseY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // If mouse hasn't moved, create particles at current position
-        if (distance < 1) {
-            for (let i = 0; i < numParticles; i++) {
-                const offsetX = (Math.random() * spread * 2 - spread);
-                const offsetY = (Math.random() * spread * 2 - spread);
-                
-                this.particles.push({
-                    x: this.mouseX + offsetX,
-                    y: this.mouseY + offsetY,
-                    size: this.gridSize,
-                    speedX: (Math.random() - 0.5) * 1,
-                    speedY: Math.random() * 1 - 0.5,
-                    color: this.getCurrentColor(),
-                    settled: false,
-                    birthTime: performance.now()
-                });
-            }
-            return;
-        }
-        
-        // Create particles along the mouse movement path
+        const numParticles = this.config.particlesPerFrame;
         for (let i = 0; i < numParticles; i++) {
-            // Distribute particles evenly along the path
-            const t = i / (numParticles - 1);
-            const baseX = this.lastMouseX + dx * t;
-            const baseY = this.lastMouseY + dy * t;
+            // Reduce spread and align to grid for tighter stacking
+            const spread = this.config.particleSpread;
+            const rawX = this.mouseX + (Math.random() * spread * 2 - spread);
+            const rawY = this.mouseY + (Math.random() * spread * 2 - spread);
             
-            // Add random spread around the path
-            const offsetX = (Math.random() * spread * 2 - spread);
-            const offsetY = (Math.random() * spread * 2 - spread);
+            // Align to grid immediately for better stacking
+            const x = Math.round(rawX / this.gridSize) * this.gridSize;
+            const y = Math.round(rawY / this.gridSize) * this.gridSize;
             
             this.particles.push({
-                x: baseX + offsetX,
-                y: baseY + offsetY,
+                x,
+                y,
                 size: this.gridSize,
-                speedX: (Math.random() - 0.5) * 1,
-                speedY: Math.random() * 1 - 0.5,
+                speedX: 0,
+                speedY: 0,
                 color: this.getCurrentColor(),
                 settled: false,
                 birthTime: performance.now()
@@ -152,8 +141,8 @@ class SandSimulation {
             p.y = Math.round(p.y / this.gridSize) * this.gridSize;
             
             // Calculate fall distance based on deltaTime
-            const fallSpeed = 4; // Increased fall speed
-            const steps = Math.max(1, Math.floor(fallSpeed * (deltaTime / 16))); // Smooth multi-step movement
+            const fallSpeed = this.config.fallSpeed;
+            const steps = Math.max(1, Math.floor(fallSpeed * (deltaTime / 16)));
             
             // Process multiple steps per frame for smoother fast movement
             for (let step = 0; step < steps; step++) {
@@ -199,7 +188,7 @@ class SandSimulation {
         });
         
         // Update the global hue for color transition
-        this.hue = (this.hue + this.colorSpeed) % 360;
+        this.hue = (this.hue + this.config.colorSpeed) % 360;
     }
     
     draw() {
