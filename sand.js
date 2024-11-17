@@ -14,12 +14,12 @@ class SandSimulation {
             sandFlow: 2,
             fallSpeed: 2,
             colorSpeed: 0.5,
+            pixelSize: 4,     // Controls size of new particles
             particlesPerFrame: 20  // Fixed value, not exposed to GUI
         };
         
         // Grid system for collision detection
-        this.gridSize = 4;
-        this.grid = new Set();
+        this.gridSize = this.config.pixelSize;
         
         // Color transition
         this.hue = 0;
@@ -49,8 +49,12 @@ class SandSimulation {
     setupGUI() {
         const gui = new dat.GUI();
         gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
-        gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
+        gui.add(this.config, 'fallSpeed', 0.5, 20).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
+        gui.add(this.config, 'pixelSize', 1, 8).step(1).name('Pixel Size')
+            .onChange((value) => {
+                this.gridSize = value;
+            });
     }
     
     resize() {
@@ -67,22 +71,42 @@ class SandSimulation {
     }
     
     getGridPosition(x, y) {
-        const gridX = Math.floor(x / this.gridSize);
-        const gridY = Math.floor(y / this.gridSize);
-        return `${gridX},${gridY}`;
+        // Use smallest possible grid size (1) for consistent collision detection
+        return `${Math.floor(x)},${Math.floor(y)}`;
     }
     
-    isPositionOccupied(x, y) {
-        return this.grid.has(this.getGridPosition(x, y));
-    }
-    
-    setGridPosition(x, y, occupied) {
-        const pos = this.getGridPosition(x, y);
-        if (occupied) {
-            this.grid.add(pos);
-        } else {
-            this.grid.delete(pos);
+    isPositionOccupied(x, y, size) {
+        // Check each pixel position within the particle's size
+        for (let dx = 0; dx < size; dx++) {
+            for (let dy = 0; dy < size; dy++) {
+                if (this.grid.has(this.getGridPosition(x + dx, y + dy))) {
+                    return true;
+                }
+            }
         }
+        return false;
+    }
+    
+    setGridPosition(x, y, size, occupied) {
+        // Set all pixel positions within the particle's size
+        for (let dx = 0; dx < size; dx++) {
+            for (let dy = 0; dy < size; dy++) {
+                const pos = this.getGridPosition(x + dx, y + dy);
+                if (occupied) {
+                    this.grid.add(pos);
+                } else {
+                    this.grid.delete(pos);
+                }
+            }
+        }
+    }
+    
+    checkCollision(x, y, size) {
+        // Check canvas bounds first
+        if (x < 0 || x + size > this.canvas.width || y + size > this.canvas.height) {
+            return true;
+        }
+        return this.isPositionOccupied(x, y, size);
     }
     
     getCurrentColor() {
@@ -107,14 +131,17 @@ class SandSimulation {
             const rawX = this.mouseX + (Math.random() * spread * 2 - spread);
             const rawY = this.mouseY + (Math.random() * spread * 2 - spread);
             
-            // Align to grid immediately for better stacking
-            const x = Math.round(rawX / this.gridSize) * this.gridSize;
-            const y = Math.round(rawY / this.gridSize) * this.gridSize;
+            // Use current pixel size for new particles
+            const size = this.config.pixelSize;
+            
+            // Align to current grid size for better stacking
+            const x = Math.round(rawX / size) * size;
+            const y = Math.round(rawY / size) * size;
             
             this.particles.push({
                 x,
                 y,
-                size: this.gridSize,
+                size: size,  // Store size with particle
                 speedX: 0,
                 speedY: 0,
                 color: this.getCurrentColor(),
@@ -124,41 +151,32 @@ class SandSimulation {
         }
     }
     
-    checkCollision(x, y) {
-        // Check canvas bounds first
-        if (x < 0 || x >= this.canvas.width || y >= this.canvas.height - this.gridSize) {
-            return true;
-        }
-        return this.isPositionOccupied(x, y);
-    }
-    
     updateParticles(deltaTime) {
         this.particles.forEach(p => {
             if (p.settled) return;
             
-            // Ensure grid alignment at all times
-            p.x = Math.round(p.x / this.gridSize) * this.gridSize;
-            p.y = Math.round(p.y / this.gridSize) * this.gridSize;
+            // Use particle's own size for grid alignment
+            p.x = Math.round(p.x / p.size) * p.size;
+            p.y = Math.round(p.y / p.size) * p.size;
             
-            // Calculate fall distance based on deltaTime
-            const fallSpeed = this.config.fallSpeed;
-            const steps = Math.max(1, Math.floor(fallSpeed * (deltaTime / 16)));
+            // Calculate pixels to move based on fall speed
+            const pixelsToMove = Math.max(1, Math.floor(this.config.fallSpeed * (deltaTime / 16)));
             
-            // Process multiple steps per frame for smoother fast movement
-            for (let step = 0; step < steps; step++) {
-                const nextY = p.y + this.gridSize;
+            // Process multiple steps for smoother fast movement
+            for (let step = 0; step < pixelsToMove; step++) {
+                const nextY = p.y + 1; // Move one pixel at a time
                 
                 // Check if can move down
-                if (this.checkCollision(p.x, nextY)) {
+                if (this.checkCollision(p.x, nextY, p.size)) {
                     // Check diagonal positions
-                    const leftX = p.x - this.gridSize;
-                    const rightX = p.x + this.gridSize;
-                    const canMoveLeft = leftX >= 0 && !this.checkCollision(leftX, nextY);
-                    const canMoveRight = rightX < this.canvas.width && !this.checkCollision(rightX, nextY);
+                    const leftX = p.x - 1;
+                    const rightX = p.x + 1;
+                    const canMoveLeft = leftX >= 0 && !this.checkCollision(leftX, nextY, p.size);
+                    const canMoveRight = rightX + p.size <= this.canvas.width && !this.checkCollision(rightX, nextY, p.size);
                     
                     if (canMoveLeft || canMoveRight) {
                         // Determine direction based on row for consistent stacking
-                        const row = Math.floor(p.y / this.gridSize);
+                        const row = Math.floor(p.y);
                         
                         if (canMoveLeft && canMoveRight) {
                             // Choose direction based on row number for alternating pattern
@@ -171,7 +189,7 @@ class SandSimulation {
                     } else {
                         // If can't move diagonally, settle here
                         p.settled = true;
-                        this.setGridPosition(p.x, p.y, true);
+                        this.setGridPosition(p.x, p.y, p.size, true);
                         break; // Exit the step loop if settled
                     }
                 } else {
@@ -193,7 +211,7 @@ class SandSimulation {
         
         this.particles.forEach(p => {
             this.ctx.fillStyle = p.color;
-            this.ctx.fillRect(p.x, p.y, this.gridSize, this.gridSize);
+            this.ctx.fillRect(p.x, p.y, p.size, p.size);  // Use particle's own size
         });
     }
     
