@@ -48,7 +48,7 @@ class SandSimulation {
     
     setupGUI() {
         const gui = new dat.GUI();
-        gui.add(this.config, 'particleSpread', 0, 10).step(0.5).name('Particle Spread');
+        gui.add(this.config, 'particleSpread', 0, 40).step(0.5).name('Particle Spread');
         gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
     }
