@@ -125,7 +125,8 @@ class SandSimulation {
     }
     
     checkCollision(x, y) {
-        if (y >= this.canvas.height - this.gridSize) {
+        // Check canvas bounds first
+        if (x < 0 || x >= this.canvas.width || y >= this.canvas.height - this.gridSize) {
             return true;
         }
         return this.isPositionOccupied(x, y);
@@ -152,8 +153,8 @@ class SandSimulation {
                     // Check diagonal positions
                     const leftX = p.x - this.gridSize;
                     const rightX = p.x + this.gridSize;
-                    const canMoveLeft = !this.checkCollision(leftX, nextY);
-                    const canMoveRight = !this.checkCollision(rightX, nextY);
+                    const canMoveLeft = leftX >= 0 && !this.checkCollision(leftX, nextY);
+                    const canMoveRight = rightX < this.canvas.width && !this.checkCollision(rightX, nextY);
                     
                     if (canMoveLeft || canMoveRight) {
                         // Determine direction based on row for consistent stacking
@@ -177,9 +178,6 @@ class SandSimulation {
                     // Move straight down
                     p.y = nextY;
                 }
-                
-                // Keep within bounds
-                p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
                 
                 // If we've hit the bottom or another particle, no need to continue steps
                 if (p.settled) break;
