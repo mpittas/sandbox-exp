@@ -11,7 +11,7 @@ class SandSimulation {
         
         // Configuration options
         this.config = {
-            particleSpread: 2,
+            sandFlow: 2,
             fallSpeed: 2,
             colorSpeed: 0.5,
             particlesPerFrame: 20  // Fixed value, not exposed to GUI
@@ -48,7 +48,7 @@ class SandSimulation {
     
     setupGUI() {
         const gui = new dat.GUI();
-        gui.add(this.config, 'particleSpread', 0, 40).step(0.5).name('Particle Spread');
+        gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
         gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
     }
@@ -103,7 +103,7 @@ class SandSimulation {
         const numParticles = this.config.particlesPerFrame;
         for (let i = 0; i < numParticles; i++) {
             // Reduce spread and align to grid for tighter stacking
-            const spread = this.config.particleSpread;
+            const spread = this.config.sandFlow;
             const rawX = this.mouseX + (Math.random() * spread * 2 - spread);
             const rawY = this.mouseY + (Math.random() * spread * 2 - spread);
             
