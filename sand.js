@@ -10,7 +10,7 @@ class SandSimulation {
         this.isMouseDown = false;
         
         // Grid system for collision detection
-        this.gridSize = 4;
+        this.gridSize = 5; // Smaller particles
         this.grid = new Set();
         
         // Color transition
@@ -19,7 +19,7 @@ class SandSimulation {
         
         // Particle creation interval
         this.lastParticleTime = 0;
-        this.particleInterval = 16; // Create particles every 16ms (roughly 60fps)
+        this.particleInterval = 8; // Create particles more frequently (120fps)
         
         // Set canvas to full window size
         this.resize();
@@ -83,9 +83,9 @@ class SandSimulation {
     }
     
     createParticles() {
-        const numParticles = 8;
+        const numParticles = 12; // Create more particles per batch
         for (let i = 0; i < numParticles; i++) {
-            const spread = 5;
+            const spread = 3; // Tighter spread for more focused flow
             const x = this.mouseX + (Math.random() * spread * 2 - spread);
             const y = this.mouseY + (Math.random() * spread * 2 - spread);
             
@@ -93,8 +93,8 @@ class SandSimulation {
                 x,
                 y,
                 size: this.gridSize,
-                speedX: (Math.random() - 0.5) * 1,
-                speedY: Math.random() * 1 - 0.5,
+                speedX: (Math.random() - 0.5) * 0.8, // Reduced initial horizontal speed
+                speedY: Math.random() * 0.5, // Reduced initial vertical speed
                 color: this.getCurrentColor(),
                 settled: false,
                 birthTime: performance.now()
@@ -131,10 +131,13 @@ class SandSimulation {
                     // Choose a direction randomly if both are available
                     if (canMoveLeft && canMoveRight) {
                         p.x += (Math.random() < 0.5 ? -1 : 1) * this.gridSize;
+                        p.speedX *= 0.8; // Maintain some horizontal momentum
                     } else if (canMoveLeft) {
                         p.x -= this.gridSize;
+                        p.speedX = Math.min(p.speedX, -0.2); // Add slight left momentum
                     } else {
                         p.x += this.gridSize;
+                        p.speedX = Math.max(p.speedX, 0.2); // Add slight right momentum
                     }
                     p.y = newY;
                 } else {
@@ -150,8 +153,8 @@ class SandSimulation {
                 p.y = newY;
             }
             
-            p.speedY += 0.15;
-            p.speedX *= 0.99;
+            p.speedY += 0.2; // Increased gravity
+            p.speedX *= 0.95; // Reduced horizontal drag for more movement
             
             // Keep within bounds
             p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
