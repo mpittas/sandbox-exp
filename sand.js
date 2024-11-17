@@ -68,13 +68,83 @@ class SandSimulation {
             .onChange(() => {
                 this.resetCanvas();
             });
-        gui.add(this.config, 'shapeSize', 20, 200).step(2).name('Shape Size');
+        gui.add(this.config, 'shapeSize', 20, 200).step(2).name('Shape Size')
+            .onChange(() => {
+                this.handleShapeChange();
+            });
+    }
+    
+    handleShapeChange() {
+        if (this.config.shapeType === 'none') return;
+
+        // Clear the entire grid
+        this.grid = new Set();
+        
+        // First pass: Mark all particles as unsettled and identify affected ones
+        const affectedParticles = [];
+        this.particles.forEach(p => {
+            p.settled = false; // Unsettle all particles to force recalculation
+            if (this.isInsideShape(p.x, p.y)) {
+                affectedParticles.push(p);
+            }
+        });
+
+        // Sort affected particles from top to bottom, then left to right
+        affectedParticles.sort((a, b) => {
+            if (a.y === b.y) return a.x - b.x;
+            return a.y - b.y;
+        });
+
+        // Process affected particles
+        affectedParticles.forEach(p => {
+            let found = false;
+            const maxRadius = 10; // Maximum radius to search for new position
+            
+            // Spiral search pattern
+            for (let radius = 1; radius <= maxRadius && !found; radius++) {
+                // Try positions in a circular pattern
+                for (let angle = 0; angle < Math.PI * 2 && !found; angle += Math.PI / 8) {
+                    const dx = Math.round(Math.cos(angle) * radius) * this.gridSize;
+                    const dy = Math.round(Math.sin(angle) * radius) * this.gridSize;
+                    
+                    const newX = p.x + dx;
+                    const newY = p.y + dy;
+                    
+                    // Check if new position is valid
+                    if (newX >= 0 && newX < this.canvas.width &&
+                        newY >= 0 && newY < this.canvas.height &&
+                        !this.isInsideShape(newX, newY) &&
+                        !this.isPositionOccupied(newX, newY)) {
+                        
+                        // Move particle to new position
+                        p.x = newX;
+                        p.y = newY;
+                        found = true;
+                    }
+                }
+            }
+            
+            // If no position found, move particle up above the shape
+            if (!found) {
+                const shapeTop = this.shape.y - this.config.shapeSize;
+                p.y = Math.max(0, shapeTop - this.gridSize * 2);
+                // Adjust X position to prevent clustering
+                p.x += (Math.random() - 0.5) * this.gridSize * 4;
+                p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
+            }
+        });
     }
     
     resetCanvas() {
         this.gridSize = this.config.pixelSize;
-        this.particles = [];
+        
+        // Clear the grid but keep particles
         this.grid = new Set();
+        
+        // Reset all particles to unsettled state
+        this.particles.forEach(p => {
+            p.settled = false;
+        });
     }
     
     resize() {
@@ -163,6 +233,21 @@ class SandSimulation {
         }
     }
     
+    checkCollision(x, y) {
+        // Enhanced collision detection
+        if (x < 0 || x >= this.canvas.width || y >= this.canvas.height) {
+            return true;
+        }
+        
+        // Check shape collision with a small buffer
+        if (this.isInsideShape(x, y)) {
+            return true;
+        }
+        
+        // Check grid collision
+        return this.isPositionOccupied(x, y);
+    }
+    
     createParticles() {
         const numParticles = this.config.particlesPerFrame;
         for (let i = 0; i < numParticles; i++) {
@@ -193,73 +278,57 @@ class SandSimulation {
         }
     }
     
-    checkCollision(x, y) {
-        // Check canvas bounds first
-        if (x < 0 || x >= this.canvas.width || y >= this.canvas.height) {
-            return true;
-        }
-        
-        // Check shape collision
-        if (this.isInsideShape(x, y)) {
-            return true;
-        }
-        
-        return this.isPositionOccupied(x, y);
-    }
-    
     updateParticles(deltaTime) {
+        // Clear grid before updating
+        this.grid = new Set();
+        
+        // Re-add all settled particles to grid
+        this.particles.forEach(p => {
+            if (p.settled) {
+                this.setGridPosition(p.x, p.y, true);
+            }
+        });
+        
         this.particles.forEach(p => {
             if (p.settled) return;
             
-            // Ensure grid alignment at all times
+            // Ensure grid alignment
             p.x = Math.round(p.x / this.gridSize) * this.gridSize;
             p.y = Math.round(p.y / this.gridSize) * this.gridSize;
             
-            // Calculate fall distance based on deltaTime
             const fallSpeed = this.config.fallSpeed;
             const steps = Math.max(1, Math.floor(fallSpeed * (deltaTime / 16)));
             
-            // Process multiple steps per frame for smoother fast movement
             for (let step = 0; step < steps; step++) {
                 const nextY = p.y + this.gridSize;
                 
-                // Check if can move down
                 if (this.checkCollision(p.x, nextY)) {
-                    // Check diagonal positions
                     const leftX = p.x - this.gridSize;
                     const rightX = p.x + this.gridSize;
                     const canMoveLeft = leftX >= 0 && !this.checkCollision(leftX, nextY);
                     const canMoveRight = rightX < this.canvas.width && !this.checkCollision(rightX, nextY);
                     
                     if (canMoveLeft || canMoveRight) {
-                        // Determine direction based on row for consistent stacking
                         const row = Math.floor(p.y / this.gridSize);
-                        
                         if (canMoveLeft && canMoveRight) {
-                            // Choose direction based on row number for alternating pattern
                             p.x = (row % 2 === 0) ? leftX : rightX;
                         } else {
-                            // Move to the only available side
                             p.x = canMoveLeft ? leftX : rightX;
                         }
                         p.y = nextY;
                     } else {
-                        // If can't move diagonally, settle here
                         p.settled = true;
                         this.setGridPosition(p.x, p.y, true);
-                        break; // Exit the step loop if settled
+                        break;
                     }
                 } else {
-                    // Move straight down
                     p.y = nextY;
                 }
                 
-                // If we've hit the bottom or another particle, no need to continue steps
                 if (p.settled) break;
             }
         });
         
-        // Update the global hue for color transition
         this.hue = (this.hue + this.config.colorSpeed) % 360;
     }
     
