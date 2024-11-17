@@ -13,8 +13,8 @@ class SandSimulation {
         this.config = {
             particleSpread: 2,
             fallSpeed: 2,
-            particlesPerFrame: 8,
-            colorSpeed: 0.5
+            colorSpeed: 0.5,
+            particlesPerFrame: 20  // Fixed value, not exposed to GUI
         };
         
         // Grid system for collision detection
@@ -50,7 +50,6 @@ class SandSimulation {
         const gui = new dat.GUI();
         gui.add(this.config, 'particleSpread', 0, 10).step(0.5).name('Particle Spread');
         gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
-        gui.add(this.config, 'particlesPerFrame', 1, 20).step(1).name('Particles/Frame');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
     }
     
