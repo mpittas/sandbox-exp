@@ -14,11 +14,12 @@ class SandSimulation {
             sandFlow: 2,
             fallSpeed: 2,
             colorSpeed: 0.5,
-            particlesPerFrame: 20  // Fixed value, not exposed to GUI
+            particlesPerFrame: 20,  // Fixed value, not exposed to GUI
+            pixelSize: 4  // New pixel size option
         };
         
         // Grid system for collision detection
-        this.gridSize = 4;
+        this.gridSize = this.config.pixelSize;
         this.grid = new Set();
         
         // Color transition
@@ -51,6 +52,15 @@ class SandSimulation {
         gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
         gui.add(this.config, 'fallSpeed', 0.5, 5).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
+        gui.add(this.config, 'pixelSize', 2, 12).step(1).name('Pixel Size').onChange(() => {
+            this.resetCanvas();
+        });
+    }
+    
+    resetCanvas() {
+        this.gridSize = this.config.pixelSize;
+        this.particles = [];
+        this.grid = new Set();
     }
     
     resize() {
