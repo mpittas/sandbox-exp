@@ -20,7 +20,7 @@ class SandSimulation {
             shapeSize: 100  // Size/radius of the shape
         };
         
-        // Shape properties
+        // Shape propertie
         this.shape = {
             x: window.innerWidth / 2,
             y: window.innerHeight / 2
