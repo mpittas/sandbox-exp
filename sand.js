@@ -15,7 +15,15 @@ class SandSimulation {
             fallSpeed: 3.5,
             colorSpeed: 0.5,
             particlesPerFrame: 20,  // Fixed value, not exposed to GUI
-            pixelSize: 5  
+            pixelSize: 5,
+            shapeType: 'none',  // none, circle, square, triangle
+            shapeSize: 100  // Size/radius of the shape
+        };
+        
+        // Shape properties
+        this.shape = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
         };
         
         // Grid system for collision detection
@@ -55,6 +63,12 @@ class SandSimulation {
         gui.add(this.config, 'pixelSize', 2, 12).step(1).name('Pixel Size').onChange(() => {
             this.resetCanvas();
         });
+        gui.add(this.config, 'shapeType', ['none', 'circle', 'square', 'triangle'])
+            .name('Shape Type')
+            .onChange(() => {
+                this.resetCanvas();
+            });
+        gui.add(this.config, 'shapeSize', 20, 200).step(2).name('Shape Size');
     }
     
     resetCanvas() {
@@ -110,6 +124,45 @@ class SandSimulation {
         return `hsl(${mainHue + hueVariation}, ${saturation + satVariation}%, ${lightness + lightVariation}%)`;
     }
     
+    isInsideShape(x, y) {
+        const px = x + this.gridSize/2;
+        const py = y + this.gridSize/2;
+        
+        switch (this.config.shapeType) {
+            case 'circle':
+                const dx = px - this.shape.x;
+                const dy = py - this.shape.y;
+                return Math.sqrt(dx * dx + dy * dy) < this.config.shapeSize + this.gridSize/2;
+                
+            case 'square':
+                const halfSize = this.config.shapeSize;
+                return px >= this.shape.x - halfSize &&
+                       px <= this.shape.x + halfSize &&
+                       py >= this.shape.y - halfSize &&
+                       py <= this.shape.y + halfSize;
+                
+            case 'triangle':
+                const size = this.config.shapeSize * 2;
+                const height = size * Math.sqrt(3) / 2;
+                const x1 = this.shape.x;
+                const y1 = this.shape.y - height/2;
+                const x2 = this.shape.x - size/2;
+                const y2 = this.shape.y + height/2;
+                const x3 = this.shape.x + size/2;
+                const y3 = this.shape.y + height/2;
+                
+                const denominator = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+                const a = ((y2 - y3) * (px - x3) + (x3 - x2) * (py - y3)) / denominator;
+                const b = ((y3 - y1) * (px - x3) + (x1 - x3) * (py - y3)) / denominator;
+                const c = 1 - a - b;
+                
+                return a >= 0 && a <= 1 && b >= 0 && b <= 1 && c >= 0 && c <= 1;
+                
+            default:
+                return false;
+        }
+    }
+    
     createParticles() {
         const numParticles = this.config.particlesPerFrame;
         for (let i = 0; i < numParticles; i++) {
@@ -121,6 +174,11 @@ class SandSimulation {
             // Align to grid immediately for better stacking
             const x = Math.round(rawX / this.gridSize) * this.gridSize;
             const y = Math.round(rawY / this.gridSize) * this.gridSize;
+            
+            // Skip if position is inside shape
+            if (this.isInsideShape(x, y)) {
+                continue;
+            }
             
             this.particles.push({
                 x,
@@ -140,6 +198,12 @@ class SandSimulation {
         if (x < 0 || x >= this.canvas.width || y >= this.canvas.height) {
             return true;
         }
+        
+        // Check shape collision
+        if (this.isInsideShape(x, y)) {
+            return true;
+        }
+        
         return this.isPositionOccupied(x, y);
     }
     
@@ -199,9 +263,47 @@ class SandSimulation {
         this.hue = (this.hue + this.config.colorSpeed) % 360;
     }
     
+    drawShape() {
+        if (this.config.shapeType === 'none') return;
+        
+        this.ctx.fillStyle = '#444';
+        this.ctx.beginPath();
+        
+        switch (this.config.shapeType) {
+            case 'circle':
+                this.ctx.arc(this.shape.x, this.shape.y, this.config.shapeSize, 0, Math.PI * 2);
+                break;
+                
+            case 'square':
+                const halfSize = this.config.shapeSize;
+                this.ctx.rect(
+                    this.shape.x - halfSize,
+                    this.shape.y - halfSize,
+                    halfSize * 2,
+                    halfSize * 2
+                );
+                break;
+                
+            case 'triangle':
+                const size = this.config.shapeSize * 2;
+                const height = size * Math.sqrt(3) / 2;
+                this.ctx.moveTo(this.shape.x, this.shape.y - height/2);
+                this.ctx.lineTo(this.shape.x - size/2, this.shape.y + height/2);
+                this.ctx.lineTo(this.shape.x + size/2, this.shape.y + height/2);
+                this.ctx.closePath();
+                break;
+        }
+        
+        this.ctx.fill();
+    }
+    
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Draw the shape first
+        this.drawShape();
+        
+        // Then draw particles
         this.particles.forEach(p => {
             this.ctx.fillStyle = p.color;
             this.ctx.fillRect(p.x, p.y, this.gridSize, this.gridSize);
