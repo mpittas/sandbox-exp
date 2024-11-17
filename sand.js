@@ -11,8 +11,8 @@ class SandSimulation {
         
         // Configuration options
         this.config = {
-            sandFlow: 15,
-            fallSpeed: 3.5,
+            sandFlow: 20,
+            fallSpeed: 5,
             colorSpeed: 0.5,
             particlesPerFrame: 20,  // Fixed value, not exposed to GUI
             pixelSize: 5,
