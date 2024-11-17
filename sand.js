@@ -20,6 +20,7 @@ class SandSimulation {
         // Particle creation interval
         this.lastParticleTime = 0;
         this.particleInterval = 16; // Create particles every 16ms (roughly 60fps)
+        this.particleSpacing = 4; // Distance between particle spawn points
         
         // Set canvas to full window size
         this.resize();
@@ -84,14 +85,47 @@ class SandSimulation {
     
     createParticles() {
         const numParticles = 8;
+        const spread = 5;
+        
+        // Calculate distance moved
+        const dx = this.mouseX - this.lastMouseX;
+        const dy = this.mouseY - this.lastMouseY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // If mouse hasn't moved, create particles at current position
+        if (distance < 1) {
+            for (let i = 0; i < numParticles; i++) {
+                const offsetX = (Math.random() * spread * 2 - spread);
+                const offsetY = (Math.random() * spread * 2 - spread);
+                
+                this.particles.push({
+                    x: this.mouseX + offsetX,
+                    y: this.mouseY + offsetY,
+                    size: this.gridSize,
+                    speedX: (Math.random() - 0.5) * 1,
+                    speedY: Math.random() * 1 - 0.5,
+                    color: this.getCurrentColor(),
+                    settled: false,
+                    birthTime: performance.now()
+                });
+            }
+            return;
+        }
+        
+        // Create particles along the mouse movement path
         for (let i = 0; i < numParticles; i++) {
-            const spread = 5;
-            const x = this.mouseX + (Math.random() * spread * 2 - spread);
-            const y = this.mouseY + (Math.random() * spread * 2 - spread);
+            // Distribute particles evenly along the path
+            const t = i / (numParticles - 1);
+            const baseX = this.lastMouseX + dx * t;
+            const baseY = this.lastMouseY + dy * t;
+            
+            // Add random spread around the path
+            const offsetX = (Math.random() * spread * 2 - spread);
+            const offsetY = (Math.random() * spread * 2 - spread);
             
             this.particles.push({
-                x,
-                y,
+                x: baseX + offsetX,
+                y: baseY + offsetY,
                 size: this.gridSize,
                 speedX: (Math.random() - 0.5) * 1,
                 speedY: Math.random() * 1 - 0.5,
