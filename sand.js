@@ -17,6 +17,10 @@ class SandSimulation {
         this.hue = 0;
         this.colorSpeed = 0.5;
         
+        // Particle creation interval
+        this.lastParticleTime = 0;
+        this.particleInterval = 16; // Create particles every 16ms (roughly 60fps)
+        
         // Set canvas to full window size
         this.resize();
         
@@ -43,10 +47,6 @@ class SandSimulation {
         this.lastMouseY = this.mouseY;
         this.mouseX = e.clientX;
         this.mouseY = e.clientY;
-        
-        if (this.isMouseDown) {
-            this.createParticles();
-        }
     }
     
     getGridPosition(x, y) {
@@ -106,32 +106,54 @@ class SandSimulation {
         if (y >= this.canvas.height - this.gridSize) {
             return true;
         }
-        
-        const belowY = y + this.gridSize;
-        return this.isPositionOccupied(x, belowY);
+        return this.isPositionOccupied(x, y);
     }
     
     updateParticles(deltaTime) {
         this.particles.forEach(p => {
             if (p.settled) return;
             
+            // Remove from old position
+            if (p.settled) {
+                this.setGridPosition(p.x, p.y, false);
+            }
+            
             const newX = p.x + p.speedX;
             const newY = p.y + p.speedY;
             
-            if (this.checkCollision(newX, newY)) {
-                p.x = Math.floor(newX / this.gridSize) * this.gridSize;
-                p.y = Math.floor(newY / this.gridSize) * this.gridSize;
-                p.settled = true;
-                this.setGridPosition(p.x, p.y, true);
-                return;
+            // Check if can move down
+            if (this.checkCollision(newX, newY + this.gridSize)) {
+                // Try moving diagonally
+                const canMoveLeft = !this.checkCollision(newX - this.gridSize, newY + this.gridSize);
+                const canMoveRight = !this.checkCollision(newX + this.gridSize, newY + this.gridSize);
+                
+                if (canMoveLeft || canMoveRight) {
+                    // Choose a direction randomly if both are available
+                    if (canMoveLeft && canMoveRight) {
+                        p.x += (Math.random() < 0.5 ? -1 : 1) * this.gridSize;
+                    } else if (canMoveLeft) {
+                        p.x -= this.gridSize;
+                    } else {
+                        p.x += this.gridSize;
+                    }
+                    p.y = newY;
+                } else {
+                    // If can't move diagonally, settle
+                    p.x = Math.floor(newX / this.gridSize) * this.gridSize;
+                    p.y = Math.floor(newY / this.gridSize) * this.gridSize;
+                    p.settled = true;
+                    this.setGridPosition(p.x, p.y, true);
+                }
+            } else {
+                // Can move straight down
+                p.x = newX;
+                p.y = newY;
             }
-            
-            p.x = newX;
-            p.y = newY;
             
             p.speedY += 0.15;
             p.speedX *= 0.99;
             
+            // Keep within bounds
             p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
         });
         
@@ -151,6 +173,12 @@ class SandSimulation {
     animate(currentTime) {
         const deltaTime = currentTime - this.lastTime;
         this.lastTime = currentTime;
+        
+        // Create particles continuously when mouse is held down
+        if (this.isMouseDown && currentTime - this.lastParticleTime >= this.particleInterval) {
+            this.createParticles();
+            this.lastParticleTime = currentTime;
+        }
         
         this.updateParticles(deltaTime);
         this.draw();
