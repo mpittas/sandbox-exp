@@ -52,7 +52,31 @@ class SandSimulation {
         "mouseleave",
         () => (this.isMouseDown = false)
       );
-  
+
+      // Touch event listeners for mobile support
+      this.canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        this.isMouseDown = true;
+        const touch = e.touches[0];
+        this.handleMouse(touch);
+      });
+      
+      this.canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        this.handleMouse(touch);
+      });
+      
+      this.canvas.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        this.isMouseDown = false;
+      });
+      
+      this.canvas.addEventListener("touchcancel", (e) => {
+        e.preventDefault();
+        this.isMouseDown = false;
+      });
+
       // Start animation loop
       this.lastTime = performance.now();
       this.animate();
@@ -448,4 +472,3 @@ class SandSimulation {
   window.addEventListener("load", () => {
     new SandSimulation();
   });
-  
