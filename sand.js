@@ -15,8 +15,8 @@ class SandSimulation {
         
         // Configuration options with mobile optimization
         this.config = {
-            sandFlow: this.isMobile ? 12 : 20,
-            fallSpeed: this.isMobile ? 3 : 5,
+            sandFlow: this.isMobile ? 16 : 20,
+            fallSpeed: this.isMobile ? 4 : 5,
             colorSpeed: 0.5,
             particlesPerFrame: this.isMobile ? 8 : 20,
             pixelSize: this.isMobile ? 8 : 5,
@@ -173,9 +173,13 @@ class SandSimulation {
     createParticles() {
         // Allow creating particles even when at max, but clean up old ones
         if (this.particles.length >= this.config.maxParticles) {
-            // Remove 10% of the oldest settled particles
-            const settledParticles = this.particles.filter(p => p.settled);
+            // Sort settled particles by height (y position), exclude bottom 30% of canvas
+            const bottomThreshold = this.canvas.height * 0.7;
+            const settledParticles = this.particles.filter(p => p.settled && p.y < bottomThreshold)
+                                                 .sort((a, b) => a.y - b.y); // Sort by height, top to bottom
+            
             if (settledParticles.length > 0) {
+                // Remove 10% of the settled particles, starting from the top
                 const removeCount = Math.floor(settledParticles.length * 0.1);
                 const particlesToRemove = settledParticles.slice(0, removeCount);
                 this.particles = this.particles.filter(p => !particlesToRemove.includes(p));
@@ -330,9 +334,13 @@ class SandSimulation {
             
             // Clean up settled particles if we're near the limit
             if (this.particles.length > this.config.maxParticles * 0.9) {
-                const settledParticles = this.particles.filter(p => p.settled);
+                // Sort settled particles by height (y position), exclude bottom 30% of canvas
+                const bottomThreshold = this.canvas.height * 0.7;
+                const settledParticles = this.particles.filter(p => p.settled && p.y < bottomThreshold)
+                                                     .sort((a, b) => a.y - b.y); // Sort by height, top to bottom
+                
                 if (settledParticles.length > 0) {
-                    // Remove 20% of settled particles
+                    // Remove 20% of the settled particles, starting from the top
                     const removeCount = Math.floor(settledParticles.length * 0.2);
                     const particlesToRemove = settledParticles.slice(0, removeCount);
                     this.particles = this.particles.filter(p => !particlesToRemove.includes(p));
