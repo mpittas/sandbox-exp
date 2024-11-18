@@ -1,26 +1,31 @@
 class SandSimulation {
     constructor() {
         this.canvas = document.getElementById('sandCanvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for performance
         this.particles = [];
         this.mouseX = 0;
         this.mouseY = 0;
         this.lastMouseX = 0;
         this.lastMouseY = 0;
         this.isMouseDown = false;
+        this.isTouching = false;
         
-        // Configuration options
+        // Mobile detection
+        this.isMobile = this.isMobileDevice();
+        
+        // Configuration options with mobile optimization
         this.config = {
-            sandFlow: 20,
-            fallSpeed: 5,
+            sandFlow: this.isMobile ? 12 : 20,
+            fallSpeed: this.isMobile ? 3 : 5,
             colorSpeed: 0.5,
-            particlesPerFrame: 20,  // Fixed value, not exposed to GUI
-            pixelSize: 5,
-            shapeType: 'none',  // none, circle, square, triangle
-            shapeSize: 100  // Size/radius of the shape
+            particlesPerFrame: this.isMobile ? 10 : 20,
+            pixelSize: this.isMobile ? 8 : 5,
+            shapeType: 'none',
+            shapeSize: this.isMobile ? 80 : 100,
+            maxParticles: this.isMobile ? 2000 : 5000 // Limit particles on mobile
         };
         
-        // Shape propertie
+        // Shape properties
         this.shape = {
             x: window.innerWidth / 2,
             y: window.innerHeight / 2
@@ -33,30 +38,108 @@ class SandSimulation {
         // Color transition
         this.hue = 0;
         
-        // Particle creation interval
+        // Particle creation interval (slower on mobile)
         this.lastParticleTime = 0;
-        this.particleInterval = 16; // Create particles every 16ms (roughly 60fps)
+        this.particleInterval = this.isMobile ? 32 : 16;
+        
+        // Performance monitoring
+        this.frameCount = 0;
+        this.lastFPSUpdate = 0;
+        this.fps = 60;
+        this.fpsUpdateInterval = 1000;
         
         // Set canvas to full window size
         this.resize();
-        
-        // Setup GUI
         this.setupGUI();
         
         // Event listeners
         window.addEventListener('resize', () => this.resize());
+        
+        // Mouse events for desktop
         this.canvas.addEventListener('mousemove', (e) => this.handleMouse(e));
         this.canvas.addEventListener('mousedown', () => this.isMouseDown = true);
         this.canvas.addEventListener('mouseup', () => this.isMouseDown = false);
         this.canvas.addEventListener('mouseleave', () => this.isMouseDown = false);
+        
+        // Touch events for mobile
+        const touchOptions = { passive: false };
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouch(e, true), touchOptions);
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouch(e), touchOptions);
+        this.canvas.addEventListener('touchend', () => this.isTouching = false, touchOptions);
+        this.canvas.addEventListener('touchcancel', () => this.isTouching = false, touchOptions);
+        
+        // Prevent unwanted mobile behaviors
+        document.body.style.overscrollBehavior = 'none';
+        document.body.style.touchAction = 'none';
         
         // Start animation loop
         this.lastTime = performance.now();
         this.animate();
     }
     
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               window.innerWidth <= 800;
+    }
+    
+    handleTouch(e, isStart = false) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        this.mouseX = touch.clientX - rect.left;
+        this.mouseY = touch.clientY - rect.top;
+        
+        if (isStart) {
+            this.isTouching = true;
+            this.lastMouseX = this.mouseX;
+            this.lastMouseY = this.mouseY;
+        }
+    }
+    
     setupGUI() {
         const gui = new dat.GUI();
+        
+        // Adjust GUI size for mobile
+        if (this.isMobile) {
+            // Make the entire GUI container larger
+            const guiContainer = document.querySelector('.dg.ac');
+            if (guiContainer) {
+                guiContainer.style.fontSize = '1.5em';
+                guiContainer.style.width = '280px';
+            }
+            
+            // Increase the size of controls
+            const controls = document.querySelectorAll('.dg .c input[type="text"]');
+            controls.forEach(control => {
+                control.style.height = '2em';
+                control.style.fontSize = '1em';
+                control.style.padding = '0.5em';
+            });
+            
+            // Make sliders more touch-friendly
+            const sliders = document.querySelectorAll('.dg .c .slider');
+            sliders.forEach(slider => {
+                slider.style.height = '2em';
+            });
+            
+            // Adjust the titles/labels
+            const labels = document.querySelectorAll('.dg .property-name');
+            labels.forEach(label => {
+                label.style.fontSize = '1.2em';
+                label.style.lineHeight = '2em';
+            });
+            
+            // Make select dropdowns larger
+            const selects = document.querySelectorAll('.dg select');
+            selects.forEach(select => {
+                select.style.height = '2em';
+                select.style.fontSize = '1em';
+                select.style.padding = '0.2em';
+            });
+        }
+        
         gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
         gui.add(this.config, 'fallSpeed', 0.5, 10).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
@@ -72,6 +155,20 @@ class SandSimulation {
             .onChange(() => {
                 this.handleShapeChange();
             });
+            
+        // Position GUI for better mobile access
+        if (this.isMobile) {
+            gui.domElement.style.position = 'absolute';
+            gui.domElement.style.top = '10px';
+            gui.domElement.style.right = '10px';
+            
+            // Add touch-friendly close button
+            const closeButton = gui.domElement.querySelector('.close-button');
+            if (closeButton) {
+                closeButton.style.fontSize = '1.5em';
+                closeButton.style.padding = '0.5em';
+            }
+        }
     }
     
     handleShapeChange() {
@@ -391,8 +488,26 @@ class SandSimulation {
         const deltaTime = currentTime - this.lastTime;
         this.lastTime = currentTime;
         
-        // Create particles continuously when mouse is held down
-        if (this.isMouseDown && currentTime - this.lastParticleTime >= this.particleInterval) {
+        // Update FPS counter
+        this.frameCount++;
+        if (currentTime > this.lastFPSUpdate + this.fpsUpdateInterval) {
+            this.fps = (this.frameCount * 1000) / (currentTime - this.lastFPSUpdate);
+            this.lastFPSUpdate = currentTime;
+            this.frameCount = 0;
+            
+            // Dynamically adjust particle count based on FPS for mobile
+            if (this.isMobile) {
+                if (this.fps < 30) {
+                    this.config.particlesPerFrame = Math.max(5, this.config.particlesPerFrame - 1);
+                } else if (this.fps > 45) {
+                    this.config.particlesPerFrame = Math.min(15, this.config.particlesPerFrame + 1);
+                }
+            }
+        }
+        
+        // Create particles when mouse is down or touching
+        if ((this.isMouseDown || this.isTouching) && 
+            currentTime - this.lastParticleTime >= this.particleInterval) {
             this.createParticles();
             this.lastParticleTime = currentTime;
         }
