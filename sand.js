@@ -1,21 +1,34 @@
 class SandSimulation {
     constructor() {
         this.canvas = document.getElementById('sandCanvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for performance
         this.particles = [];
         this.mouseX = 0;
         this.mouseY = 0;
         this.lastMouseX = 0;
         this.lastMouseY = 0;
         this.isMouseDown = false;
+        this.isTouching = false;
         
-        // Configuration options
+        // Mobile detection
+        this.isMobile = this.isMobileDevice();
+        
+        // Configuration options with mobile optimization
         this.config = {
-            sandFlow: 15,
-            fallSpeed: 3.5,
+            sandFlow: this.isMobile ? 12 : 20,
+            fallSpeed: this.isMobile ? 3 : 5,
             colorSpeed: 0.5,
-            particlesPerFrame: 20,  // Fixed value, not exposed to GUI
-            pixelSize: 5  
+            particlesPerFrame: this.isMobile ? 10 : 20,
+            pixelSize: this.isMobile ? 8 : 5,
+            shapeType: 'none',
+            shapeSize: this.isMobile ? 80 : 100,
+            maxParticles: this.isMobile ? 2000 : 5000 // Limit particles on mobile
+        };
+        
+        // Shape properties
+        this.shape = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
         };
         
         // Grid system for collision detection
@@ -25,22 +38,53 @@ class SandSimulation {
         // Color transition
         this.hue = 0;
         
-        // Particle creation interval
+        // Particle creation interval (slower on mobile)
         this.lastParticleTime = 0;
-        this.particleInterval = 16; // Create particles every 16ms (roughly 60fps)
+        this.particleInterval = this.isMobile ? 32 : 16;
+        
+        // Performance monitoring
+        this.frameCount = 0;
+        this.lastFPSUpdate = 0;
+        this.fps = 60;
+        this.fpsUpdateInterval = 1000;
         
         // Set canvas to full window size
         this.resize();
-        
-        // Setup GUI
         this.setupGUI();
         
         // Event listeners
         window.addEventListener('resize', () => this.resize());
+        
+        // Mouse events for desktop
         this.canvas.addEventListener('mousemove', (e) => this.handleMouse(e));
         this.canvas.addEventListener('mousedown', () => this.isMouseDown = true);
         this.canvas.addEventListener('mouseup', () => this.isMouseDown = false);
         this.canvas.addEventListener('mouseleave', () => this.isMouseDown = false);
+        
+        // Touch events for mobile
+        const touchOptions = { passive: false };
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouch(e, true), touchOptions);
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouch(e), touchOptions);
+        this.canvas.addEventListener('touchend', () => {
+            this.isTouching = false;
+            this.lastMouseX = this.mouseX;
+            this.lastMouseY = this.mouseY;
+        }, touchOptions);
+        this.canvas.addEventListener('touchcancel', () => {
+            this.isTouching = false;
+            this.lastMouseX = this.mouseX;
+            this.lastMouseY = this.mouseY;
+        }, touchOptions);
+        
+        // Prevent unwanted mobile behaviors
+        document.body.style.overscrollBehavior = 'none';
+        document.body.style.touchAction = 'none';
+        
+        // Prevent default touch events on the canvas
+        this.canvas.style.touchAction = 'none';
+        this.canvas.style.userSelect = 'none';
+        this.canvas.style.webkitUserSelect = 'none';
+        this.canvas.style.webkitTouchCallout = 'none';
         
         // Start animation loop
         this.lastTime = performance.now();
@@ -77,6 +121,22 @@ class SandSimulation {
         this.mouseY = e.clientY;
     }
     
+    handleTouch(e, isStart = false) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        this.mouseX = Math.round(touch.clientX - rect.left);
+        this.mouseY = Math.round(touch.clientY - rect.top);
+        
+        if (isStart) {
+            this.isTouching = true;
+            this.lastMouseX = this.mouseX;
+            this.lastMouseY = this.mouseY;
+        }
+    }
+    
     getGridPosition(x, y) {
         const gridX = Math.floor(x / this.gridSize);
         const gridY = Math.floor(y / this.gridSize);
@@ -111,28 +171,66 @@ class SandSimulation {
     }
     
     createParticles() {
-        const numParticles = this.config.particlesPerFrame;
-        for (let i = 0; i < numParticles; i++) {
-            // Reduce spread and align to grid for tighter stacking
-            const spread = this.config.sandFlow;
-            const rawX = this.mouseX + (Math.random() * spread * 2 - spread);
-            const rawY = this.mouseY + (Math.random() * spread * 2 - spread);
-            
-            // Align to grid immediately for better stacking
-            const x = Math.round(rawX / this.gridSize) * this.gridSize;
-            const y = Math.round(rawY / this.gridSize) * this.gridSize;
-            
-            this.particles.push({
-                x,
-                y,
-                size: this.gridSize,
-                speedX: 0,
-                speedY: 0,
-                color: this.getCurrentColor(),
-                settled: false,
-                birthTime: performance.now()
-            });
+        if (this.particles.length >= this.config.maxParticles) return;
+        
+        const spread = this.config.sandFlow;
+        const count = this.config.particlesPerFrame;
+        
+        // Calculate the movement vector
+        const dx = this.mouseX - this.lastMouseX;
+        const dy = this.mouseY - this.lastMouseY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // If there's significant movement, create particles along the path
+        if (distance > 0) {
+            const steps = Math.max(1, Math.floor(distance / (this.gridSize / 2)));
+            for (let i = 0; i < steps; i++) {
+                const t = i / steps;
+                const x = this.lastMouseX + dx * t;
+                const y = this.lastMouseY + dy * t;
+                
+                for (let j = 0; j < count / steps; j++) {
+                    const offsetX = (Math.random() - 0.5) * spread;
+                    const offsetY = (Math.random() - 0.5) * spread;
+                    const finalX = Math.round((x + offsetX) / this.gridSize) * this.gridSize;
+                    const finalY = Math.round((y + offsetY) / this.gridSize) * this.gridSize;
+                    
+                    if (!this.isPositionOccupied(finalX, finalY) && 
+                        finalX >= 0 && finalX < this.canvas.width &&
+                        finalY >= 0 && finalY < this.canvas.height) {
+                        this.particles.push({
+                            x: finalX,
+                            y: finalY,
+                            color: this.getCurrentColor(),
+                            settled: false
+                        });
+                    }
+                }
+            }
+        } else {
+            // If no movement, create particles at the current position
+            for (let i = 0; i < count; i++) {
+                const offsetX = (Math.random() - 0.5) * spread;
+                const offsetY = (Math.random() - 0.5) * spread;
+                const finalX = Math.round((this.mouseX + offsetX) / this.gridSize) * this.gridSize;
+                const finalY = Math.round((this.mouseY + offsetY) / this.gridSize) * this.gridSize;
+                
+                if (!this.isPositionOccupied(finalX, finalY) && 
+                    finalX >= 0 && finalX < this.canvas.width &&
+                    finalY >= 0 && finalY < this.canvas.height) {
+                    this.particles.push({
+                        x: finalX,
+                        y: finalY,
+                        color: this.getCurrentColor(),
+                        settled: false
+                    });
+                }
+            }
         }
+        
+        // Update last position
+        this.lastMouseX = this.mouseX;
+        this.lastMouseY = this.mouseY;
     }
     
     checkCollision(x, y) {
@@ -218,10 +316,20 @@ class SandSimulation {
             this.lastParticleTime = currentTime;
         }
         
+        // Create particles continuously when touch is held down
+        if (this.isTouching && currentTime - this.lastParticleTime >= this.particleInterval) {
+            this.createParticles();
+            this.lastParticleTime = currentTime;
+        }
+        
         this.updateParticles(deltaTime);
         this.draw();
         
         requestAnimationFrame((time) => this.animate(time));
+    }
+    
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 }
 
