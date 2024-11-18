@@ -92,12 +92,51 @@ class SandSimulation {
     
     setupGUI() {
         const gui = new dat.GUI();
+        
+        // Adjust GUI size for mobile
+        if (this.isMobile) {
+            // Make the entire GUI container larger
+            const guiContainer = document.querySelector('.dg.ac');
+            if (guiContainer) {
+                guiContainer.style.fontSize = '1.5em';
+                guiContainer.style.width = '280px';
+            }
+            
+            // Increase the size of controls
+            const controls = document.querySelectorAll('.dg .c input[type="text"]');
+            controls.forEach(control => {
+                control.style.height = '2em';
+                control.style.fontSize = '1em';
+                control.style.padding = '0.5em';
+            });
+            
+            // Make sliders more touch-friendly
+            const sliders = document.querySelectorAll('.dg .c .slider');
+            sliders.forEach(slider => {
+                slider.style.height = '2em';
+            });
+            
+            // Adjust the titles/labels
+            const labels = document.querySelectorAll('.dg .property-name');
+            labels.forEach(label => {
+                label.style.fontSize = '1.2em';
+                label.style.lineHeight = '2em';
+            });
+        }
+        
         gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
         gui.add(this.config, 'fallSpeed', 0.5, 10).step(0.5).name('Fall Speed');
         gui.add(this.config, 'colorSpeed', 0.1, 2).step(0.1).name('Color Speed');
         gui.add(this.config, 'pixelSize', 2, 12).step(1).name('Pixel Size').onChange(() => {
             this.resetCanvas();
         });
+        
+        // Position GUI for better mobile access
+        if (this.isMobile) {
+            gui.domElement.style.position = 'absolute';
+            gui.domElement.style.top = '10px';
+            gui.domElement.style.right = '10px';
+        }
     }
     
     resetCanvas() {
