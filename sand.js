@@ -81,31 +81,29 @@ class SandSimulation {
         this.grid = new Set();
         
         // First pass: Mark all particles as unsettled and identify affected ones
-        const affectedParticles = [];
-        this.particles.forEach(p => {
-            p.settled = false; // Unsettle all particles to force recalculation
-            if (this.isInsideShape(p.x, p.y)) {
-                affectedParticles.push(p);
-            }
-        });
+        const affectedParticles = this.particles.filter(p => this.isInsideShape(p.x, p.y));
 
-        // Sort affected particles from top to bottom, then left to right
-        affectedParticles.sort((a, b) => {
-            if (a.y === b.y) return a.x - b.x;
-            return a.y - b.y;
-        });
+        // Sort affected particles from bottom to top to prevent stacking issues
+        affectedParticles.sort((a, b) => b.y - a.y);
 
         // Process affected particles
         affectedParticles.forEach(p => {
+            p.settled = false; // Unsettle the particle
+            
+            // Initialize search parameters
             let found = false;
-            const maxRadius = 10; // Maximum radius to search for new position
+            const maxRadius = Math.max(20, Math.ceil(this.config.shapeSize / this.gridSize));
+            const startAngle = Math.random() * Math.PI * 2; // Random start angle for better distribution
             
             // Spiral search pattern
             for (let radius = 1; radius <= maxRadius && !found; radius++) {
-                // Try positions in a circular pattern
-                for (let angle = 0; angle < Math.PI * 2 && !found; angle += Math.PI / 8) {
-                    const dx = Math.round(Math.cos(angle) * radius) * this.gridSize;
-                    const dy = Math.round(Math.sin(angle) * radius) * this.gridSize;
+                // Try more positions at larger radii
+                const angleStep = Math.PI / (4 * radius);
+                
+                for (let angle = 0; angle < Math.PI * 2 && !found; angle += angleStep) {
+                    const searchAngle = startAngle + angle;
+                    const dx = Math.round(Math.cos(searchAngle) * radius) * this.gridSize;
+                    const dy = Math.round(Math.sin(searchAngle) * radius) * this.gridSize;
                     
                     const newX = p.x + dx;
                     const newY = p.y + dy;
@@ -113,8 +111,7 @@ class SandSimulation {
                     // Check if new position is valid
                     if (newX >= 0 && newX < this.canvas.width &&
                         newY >= 0 && newY < this.canvas.height &&
-                        !this.isInsideShape(newX, newY) &&
-                        !this.isPositionOccupied(newX, newY)) {
+                        !this.isInsideShape(newX, newY)) {
                         
                         // Move particle to new position
                         p.x = newX;
@@ -124,13 +121,24 @@ class SandSimulation {
                 }
             }
             
-            // If no position found, move particle up above the shape
+            // If no position found, move particle to a safe position above the shape
             if (!found) {
                 const shapeTop = this.shape.y - this.config.shapeSize;
-                p.y = Math.max(0, shapeTop - this.gridSize * 2);
-                // Adjust X position to prevent clustering
-                p.x += (Math.random() - 0.5) * this.gridSize * 4;
-                p.x = Math.max(0, Math.min(this.canvas.width - this.gridSize, p.x));
+                const safeY = Math.max(this.gridSize, shapeTop - this.gridSize * 2);
+                const spreadX = Math.min(50, this.canvas.width / 4);
+                const safeX = Math.max(this.gridSize, 
+                                     Math.min(this.canvas.width - this.gridSize,
+                                            this.shape.x + (Math.random() - 0.5) * spreadX));
+                
+                p.x = Math.round(safeX / this.gridSize) * this.gridSize;
+                p.y = Math.round(safeY / this.gridSize) * this.gridSize;
+            }
+        });
+
+        // Mark all non-affected particles as unsettled to allow for natural falling
+        this.particles.forEach(p => {
+            if (!affectedParticles.includes(p)) {
+                p.settled = false;
             }
         });
     }
