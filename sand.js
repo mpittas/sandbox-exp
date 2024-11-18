@@ -106,38 +106,60 @@ class SandSimulation {
             // Make the entire GUI container larger
             const guiContainer = document.querySelector('.dg.ac');
             if (guiContainer) {
-                guiContainer.style.fontSize = '1.5em';
-                guiContainer.style.width = '280px';
+                guiContainer.style.fontSize = '2em';  
+                guiContainer.style.width = '320px';   
             }
             
             // Increase the size of controls
             const controls = document.querySelectorAll('.dg .c input[type="text"]');
             controls.forEach(control => {
-                control.style.height = '2em';
-                control.style.fontSize = '1em';
-                control.style.padding = '0.5em';
+                control.style.height = '2.5em';      
+                control.style.fontSize = '1.2em';    
+                control.style.padding = '0.8em';     
+                control.style.width = '60%';         
             });
             
             // Make sliders more touch-friendly
             const sliders = document.querySelectorAll('.dg .c .slider');
             sliders.forEach(slider => {
-                slider.style.height = '2em';
+                slider.style.height = '2.5em';       
+                slider.style.marginTop = '0.5em';    
             });
             
             // Adjust the titles/labels
             const labels = document.querySelectorAll('.dg .property-name');
             labels.forEach(label => {
-                label.style.fontSize = '1.2em';
-                label.style.lineHeight = '2em';
+                label.style.fontSize = '1.4em';      
+                label.style.lineHeight = '2.5em';    
+                label.style.padding = '0 0.5em';     
             });
             
             // Make select dropdowns larger
             const selects = document.querySelectorAll('.dg select');
             selects.forEach(select => {
-                select.style.height = '2em';
-                select.style.fontSize = '1em';
-                select.style.padding = '0.2em';
+                select.style.height = '2.5em';       
+                select.style.fontSize = '1.2em';     
+                select.style.padding = '0.4em';      
+                select.style.width = '60%';          
             });
+
+            // Increase size of number sliders
+            const numberRows = document.querySelectorAll('.dg .c.number');
+            numberRows.forEach(row => {
+                row.style.height = '3em';            
+                row.style.marginBottom = '0.5em';    
+            });
+
+            // Make the close button more touch-friendly
+            const closeButton = document.querySelector('.dg .close-button');
+            if (closeButton) {
+                closeButton.style.fontSize = '2em';   
+                closeButton.style.padding = '0.8em';  
+                closeButton.style.width = '2.5em';    
+                closeButton.style.height = '2.5em';   
+                closeButton.style.lineHeight = '1';   
+                closeButton.style.textAlign = 'center'; 
+            }
         }
         
         gui.add(this.config, 'sandFlow', 0, 40).step(0.5).name('Sand Flow');
@@ -161,13 +183,6 @@ class SandSimulation {
             gui.domElement.style.position = 'absolute';
             gui.domElement.style.top = '10px';
             gui.domElement.style.right = '10px';
-            
-            // Add touch-friendly close button
-            const closeButton = gui.domElement.querySelector('.close-button');
-            if (closeButton) {
-                closeButton.style.fontSize = '1.5em';
-                closeButton.style.padding = '0.5em';
-            }
         }
     }
     
