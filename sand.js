@@ -86,6 +86,19 @@ class SandSimulation {
   
     setupGUI() {
       const gui = new dat.GUI();
+      
+      // Adjust GUI scaling for mobile
+      if (this.isMobile) {
+        const style = document.createElement('style');
+        style.textContent = `
+          .dg.main {
+            transform: scale(2.5);
+            transform-origin: top right;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
       gui.add(this.config, "sandFlow", 0, 40).step(0.5).name("Sand Flow");
       gui.add(this.config, "fallSpeed", 0.5, 10).step(0.5).name("Fall Speed");
       gui.add(this.config, "colorSpeed", 0.1, 2).step(0.1).name("Color Speed");
