@@ -18,11 +18,11 @@ class SandSimulation {
             sandFlow: this.isMobile ? 12 : 20,
             fallSpeed: this.isMobile ? 3 : 5,
             colorSpeed: 0.5,
-            particlesPerFrame: this.isMobile ? 10 : 20,
+            particlesPerFrame: this.isMobile ? 8 : 20,
             pixelSize: this.isMobile ? 8 : 5,
             shapeType: 'none',
             shapeSize: this.isMobile ? 80 : 100,
-            maxParticles: this.isMobile ? 2000 : 5000 // Limit particles on mobile
+            maxParticles: this.isMobile ? 3000 : 5000 // Increased for mobile
         };
         
         // Shape properties
@@ -171,7 +171,16 @@ class SandSimulation {
     }
     
     createParticles() {
-        if (this.particles.length >= this.config.maxParticles) return;
+        // Allow creating particles even when at max, but clean up old ones
+        if (this.particles.length >= this.config.maxParticles) {
+            // Remove 10% of the oldest settled particles
+            const settledParticles = this.particles.filter(p => p.settled);
+            if (settledParticles.length > 0) {
+                const removeCount = Math.floor(settledParticles.length * 0.1);
+                const particlesToRemove = settledParticles.slice(0, removeCount);
+                this.particles = this.particles.filter(p => !particlesToRemove.includes(p));
+            }
+        }
         
         const spread = this.config.sandFlow;
         const count = this.config.particlesPerFrame;
@@ -202,7 +211,8 @@ class SandSimulation {
                             x: finalX,
                             y: finalY,
                             color: this.getCurrentColor(),
-                            settled: false
+                            settled: false,
+                            birthTime: performance.now()
                         });
                     }
                 }
@@ -222,7 +232,8 @@ class SandSimulation {
                         x: finalX,
                         y: finalY,
                         color: this.getCurrentColor(),
-                        settled: false
+                        settled: false,
+                        birthTime: performance.now()
                     });
                 }
             }
@@ -310,14 +321,39 @@ class SandSimulation {
         const deltaTime = currentTime - this.lastTime;
         this.lastTime = currentTime;
         
-        // Create particles continuously when mouse is held down
-        if (this.isMouseDown && currentTime - this.lastParticleTime >= this.particleInterval) {
-            this.createParticles();
-            this.lastParticleTime = currentTime;
+        // Update FPS counter
+        this.frameCount++;
+        if (currentTime > this.lastFPSUpdate + this.fpsUpdateInterval) {
+            this.fps = (this.frameCount * 1000) / (currentTime - this.lastFPSUpdate);
+            this.lastFPSUpdate = currentTime;
+            this.frameCount = 0;
+            
+            // Clean up settled particles if we're near the limit
+            if (this.particles.length > this.config.maxParticles * 0.9) {
+                const settledParticles = this.particles.filter(p => p.settled);
+                if (settledParticles.length > 0) {
+                    // Remove 20% of settled particles
+                    const removeCount = Math.floor(settledParticles.length * 0.2);
+                    const particlesToRemove = settledParticles.slice(0, removeCount);
+                    this.particles = this.particles.filter(p => !particlesToRemove.includes(p));
+                }
+            }
+            
+            // Dynamically adjust particle count based on FPS
+            if (this.isMobile) {
+                if (this.fps < 30) {
+                    this.config.particlesPerFrame = Math.max(5, this.config.particlesPerFrame - 1);
+                    this.particleInterval = Math.min(48, this.particleInterval + 2);
+                } else if (this.fps > 45) {
+                    this.config.particlesPerFrame = Math.min(12, this.config.particlesPerFrame + 1);
+                    this.particleInterval = Math.max(16, this.particleInterval - 2);
+                }
+            }
         }
         
-        // Create particles continuously when touch is held down
-        if (this.isTouching && currentTime - this.lastParticleTime >= this.particleInterval) {
+        // Create particles when mouse is down or touching
+        if ((this.isMouseDown || this.isTouching) && 
+            currentTime - this.lastParticleTime >= this.particleInterval) {
             this.createParticles();
             this.lastParticleTime = currentTime;
         }
