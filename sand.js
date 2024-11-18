@@ -414,7 +414,7 @@ class SandSimulation {
     }
 }
 
-// Initialize when the page loads
+// Initialize when the page load
 window.addEventListener('load', () => {
     new SandSimulation();
 });
