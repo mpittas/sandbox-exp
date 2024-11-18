@@ -10,14 +10,16 @@ class SandSimulation {
       this.isMouseDown = false;
   
       // Configuration options
+      this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       this.config = {
         sandFlow: 20,
         fallSpeed: 5,
         colorSpeed: 0.5,
-        particlesPerFrame: 20, // Fixed value, not exposed to GUI
-        pixelSize: 5,
-        shapeType: "none", // none, circle, square, triangle
-        shapeSize: 100 // Size/radius of the shape
+        particlesPerFrame: 20,
+        pixelSize: this.isMobile ? 8 : 5,
+        shapeType: "none",
+        shapeSize: 100
       };
   
       // Shape propertie
