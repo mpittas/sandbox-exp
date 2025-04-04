@@ -9,6 +9,9 @@ class SandSimulation {
       this.lastMouseY = 0;
       this.isMouseDown = false;
   
+      // Initial state flag
+      this.showInstructions = true;
+  
       // Configuration options
       this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
@@ -91,9 +94,24 @@ class SandSimulation {
       if (this.isMobile) {
         const style = document.createElement('style');
         style.textContent = `
+          /* Mobile portrait (default) */
           .dg.main {
             transform: scale(2.5);
             transform-origin: top right;
+          }
+          
+          /* Mobile landscape */
+          @media (orientation: landscape) and (max-height: 500px) {
+            .dg.main {
+              transform: scale(1.85);
+            }
+          }
+          
+          /* Tablet */
+          @media (min-width: 768px) and (max-width: 1024px) {
+            .dg.main {
+              transform: scale(1.5);
+            }
           }
         `;
         document.head.appendChild(style);
@@ -342,6 +360,11 @@ class SandSimulation {
           continue;
         }
   
+        // Hide instructions on first particle creation
+        if (this.showInstructions) {
+          this.showInstructions = false;
+        }
+
         this.particles.push({
           x,
           y,
@@ -455,6 +478,24 @@ class SandSimulation {
   
       // Draw the shape first
       this.drawShape();
+  
+      // Draw instructions if needed
+      if (this.showInstructions) {
+        this.ctx.fillStyle = "#444"; // Dark grey color for text
+        const fontSize = this.isMobile ? 24 : 32;
+        this.ctx.font = `${fontSize}px Arial`;
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+
+        const text1 = "Click and drag";
+        const text2 = "to make sand fall";
+        const lineHeight = fontSize * 1.2; // Adjust line height multiplier as needed
+        const y1 = this.canvas.height / 2 - lineHeight / 2;
+        const y2 = this.canvas.height / 2 + lineHeight / 2;
+
+        this.ctx.fillText(text1, this.canvas.width / 2, y1);
+        this.ctx.fillText(text2, this.canvas.width / 2, y2);
+      }
   
       // Then draw particles
       this.particles.forEach((p) => {
