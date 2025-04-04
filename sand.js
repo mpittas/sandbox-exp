@@ -9,15 +9,20 @@ class SandSimulation {
       this.lastMouseY = 0;
       this.isMouseDown = false;
   
+      // Initial state flag
+      this.showInstructions = true;
+  
       // Configuration options
+      this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       this.config = {
         sandFlow: 20,
         fallSpeed: 5,
         colorSpeed: 0.5,
-        particlesPerFrame: 20, // Fixed value, not exposed to GUI
-        pixelSize: 5,
-        shapeType: "none", // none, circle, square, triangle
-        shapeSize: 100 // Size/radius of the shape
+        particlesPerFrame: 20,
+        pixelSize: this.isMobile ? 8 : 5,
+        shapeType: "none",
+        shapeSize: 100
       };
   
       // Shape propertie
@@ -52,7 +57,31 @@ class SandSimulation {
         "mouseleave",
         () => (this.isMouseDown = false)
       );
-  
+
+      // Touch event listeners for mobile support
+      this.canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        this.isMouseDown = true;
+        const touch = e.touches[0];
+        this.handleMouse(touch);
+      });
+      
+      this.canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        this.handleMouse(touch);
+      });
+      
+      this.canvas.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        this.isMouseDown = false;
+      });
+      
+      this.canvas.addEventListener("touchcancel", (e) => {
+        e.preventDefault();
+        this.isMouseDown = false;
+      });
+
       // Start animation loop
       this.lastTime = performance.now();
       this.animate();
@@ -60,6 +89,34 @@ class SandSimulation {
   
     setupGUI() {
       const gui = new dat.GUI();
+      
+      // Adjust GUI scaling for mobile
+      if (this.isMobile) {
+        const style = document.createElement('style');
+        style.textContent = `
+          /* Mobile portrait (default) */
+          .dg.main {
+            transform: scale(2.5);
+            transform-origin: top right;
+          }
+          
+          /* Mobile landscape */
+          @media (orientation: landscape) and (max-height: 500px) {
+            .dg.main {
+              transform: scale(1.85);
+            }
+          }
+          
+          /* Tablet */
+          @media (min-width: 768px) and (max-width: 1024px) {
+            .dg.main {
+              transform: scale(1.5);
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
       gui.add(this.config, "sandFlow", 0, 40).step(0.5).name("Sand Flow");
       gui.add(this.config, "fallSpeed", 0.5, 10).step(0.5).name("Fall Speed");
       gui.add(this.config, "colorSpeed", 0.1, 2).step(0.1).name("Color Speed");
@@ -303,6 +360,11 @@ class SandSimulation {
           continue;
         }
   
+        // Hide instructions on first particle creation
+        if (this.showInstructions) {
+          this.showInstructions = false;
+        }
+
         this.particles.push({
           x,
           y,
@@ -417,6 +479,24 @@ class SandSimulation {
       // Draw the shape first
       this.drawShape();
   
+      // Draw instructions if needed
+      if (this.showInstructions) {
+        this.ctx.fillStyle = "#444"; // Dark grey color for text
+        const fontSize = this.isMobile ? 24 : 32;
+        this.ctx.font = `${fontSize}px Arial`;
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+
+        const text1 = "Click and drag";
+        const text2 = "to make sand fall";
+        const lineHeight = fontSize * 1.2; // Adjust line height multiplier as needed
+        const y1 = this.canvas.height / 2 - lineHeight / 2;
+        const y2 = this.canvas.height / 2 + lineHeight / 2;
+
+        this.ctx.fillText(text1, this.canvas.width / 2, y1);
+        this.ctx.fillText(text2, this.canvas.width / 2, y2);
+      }
+  
       // Then draw particles
       this.particles.forEach((p) => {
         this.ctx.fillStyle = p.color;
@@ -444,8 +524,7 @@ class SandSimulation {
     }
   }
   
-  // Initialize when the page loads
+  // Initialize when the page load
   window.addEventListener("load", () => {
     new SandSimulation();
   });
-  
